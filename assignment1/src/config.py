@@ -14,12 +14,12 @@ class GPT2Config:
     n_head: int = 12
 
     # 训练超参数
-    batch_size: int = 8
-    gradient_accumulation_steps: int = 4  # 等效 batch_size = 32
-    learning_rate: float = 5e-4
+    batch_size: int = 24  # 每卡 batch_size，双卡 ×2
+    gradient_accumulation_steps: int = 2  # 等效 batch_size = 24×2×2 = 96
+    learning_rate: float = 3e-4
     weight_decay: float = 0.01
-    warmup_steps: int = 200
-    max_steps: int = 5000
+    warmup_steps: int = 100
+    max_steps: int = 20000  # ~8 epochs
     max_length: int = 512
 
     # 数据

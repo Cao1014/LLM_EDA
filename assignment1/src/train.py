@@ -1,5 +1,9 @@
-"""GPT-2 从头训练脚本"""
+"""GPT-2 从头训练脚本
 
+支持从 checkpoint 恢复训练，支持多卡并行（通过 torchrun 或 accelerate launch）。
+"""
+
+import argparse
 import os
 import math
 import torch
@@ -33,6 +37,11 @@ def build_model(config):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--resume", type=str, default=None,
+                        help="从指定 checkpoint 恢复训练，传入路径或 'auto' 自动查找最新")
+    args = parser.parse_args()
+
     config = GPT2Config()
 
     # 加载数据
@@ -43,6 +52,8 @@ def main():
 
     print(f"训练样本数: {len(train_dataset)}")
     print(f"验证样本数: {len(eval_dataset)}")
+    print(f"每卡 batch_size: {config.batch_size}, 梯度累积: {config.gradient_accumulation_steps}")
+    print(f"最大训练步数: {config.max_steps}")
 
     # 构建模型
     model = build_model(config)
@@ -85,9 +96,23 @@ def main():
         processing_class=tokenizer,
     )
 
+    # 确定是否从 checkpoint 恢复
+    resume_from = None
+    if args.resume == "auto":
+        # 自动查找最新 checkpoint
+        if os.path.isdir(config.output_dir):
+            ckpts = [d for d in os.listdir(config.output_dir) if d.startswith("checkpoint-")]
+            if ckpts:
+                latest = max(ckpts, key=lambda x: int(x.split("-")[1]))
+                resume_from = os.path.join(config.output_dir, latest)
+                print(f"自动恢复自: {resume_from}")
+    elif args.resume:
+        resume_from = args.resume
+        print(f"恢复自: {resume_from}")
+
     # 开始训练
     print("开始训练...")
-    trainer.train()
+    trainer.train(resume_from_checkpoint=resume_from)
 
     # 保存最终模型
     final_dir = os.path.join(config.output_dir, "final")
